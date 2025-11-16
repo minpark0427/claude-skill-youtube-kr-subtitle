@@ -19,6 +19,39 @@ Use this skill when users request:
 
 ## Workflow
 
+### Step 0: Environment Setup Check (First Time Only)
+
+Before processing any videos, verify that the environment is properly configured:
+
+```bash
+python scripts/setup_check.py
+```
+
+This script checks:
+- Python version (3.7+)
+- Virtual environment existence
+- Required packages (yt-dlp, pysrt, ffmpeg-python, deep-translator)
+- FFmpeg installation
+
+**Auto-fix mode:** To automatically create venv and install packages:
+```bash
+python scripts/setup_check.py --auto-fix
+```
+
+**Output:** JSON containing:
+- `success`: boolean indicating if all checks passed
+- `results`: detailed information about each component
+- `actions_taken`: list of automatic fixes performed (if --auto-fix used)
+
+**What the script does in auto-fix mode:**
+1. Creates virtual environment if it doesn't exist
+2. Installs all required Python packages from requirements.txt
+3. Verifies FFmpeg is installed (provides installation instructions if not)
+
+**Error Handling:** If FFmpeg is not installed, the script will provide platform-specific installation commands. FFmpeg cannot be auto-installed and must be installed manually.
+
+**Important:** Run this check before your first video processing. Once the environment is set up, you don't need to run this again unless you encounter dependency issues.
+
 ### Step 1: Download Video and Subtitles
 
 Run the download script to fetch the YouTube video, English subtitles, and metadata:
@@ -184,6 +217,9 @@ python scripts/process_video.py \
 ## Complete Example Workflow
 
 ```bash
+# 0. Check environment setup (first time only)
+python scripts/setup_check.py --auto-fix
+
 # 1. Download video and subtitles
 python scripts/download_youtube.py "https://www.youtube.com/watch?v=VIDEO_ID" downloads/
 

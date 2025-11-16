@@ -1,343 +1,105 @@
 # YouTube Korean Subtitle Auto-Insertion Service
 
-YouTube 비디오에 한글 자막을 자동으로 삽입하는 Claude Code Skill입니다. Claude가 YouTube 비디오를 다운로드하고, 영어 자막을 추출하여 한글로 번역한 후, FFmpeg을 사용하여 비디오에 자막을 burn-in합니다.
+YouTube 영상에 한글 자막을 자동으로 만들어 넣는 프로젝트입니다. Claude가 영상을 다운로드하고, 영어 자막을 이해한 후 맥락을 고려하여 한글로 번역하고, 최종적으로 영상에 자막을 직접 합성합니다.
 
-## Claude Code Skill
+## 이 프로젝트의 특별한 점
 
-이 레포지토리는 **Claude Code Skill**로 설계되었습니다. Clone하면 바로 사용 가능합니다!
+일반적인 자동 번역 도구와 달리, 이 프로젝트는 **Claude의 이해 능력**을 활용합니다. 단순히 문장을 번역하는 것이 아니라, 영상의 주제를 파악하고 관련 정보를 웹에서 찾아보며, 전문 용어를 일관되게 번역하고, 문화적 맥락을 고려합니다.
 
-### 빠른 시작
+### 어떻게 작동하나요?
 
-1. 이 레포지토리를 clone합니다:
-   ```bash
-   git clone <repository-url>
-   cd auto_bzcf
-   ```
-
-2. 필수 요구사항을 설치합니다 (아래 참조)
-
-3. Claude Code에서 프로젝트를 열고 요청합니다:
-   ```
-   "이 유튜브 영상에 한글 자막 넣어줘: https://youtube.com/watch?v=..."
-   ```
-
-4. Claude가 자동으로 전체 워크플로우를 실행합니다!
-
-## 주요 기능
-
-- YouTube 비디오 및 영어 자막 자동 다운로드
-- Claude의 컨텍스트 기반 한글 번역 (비디오 메타데이터 + 웹 검색)
-- YouTube 자막의 오버랩 타임스탬프 자동 수정
-- 짧은 중복 자막 제거 및 문장 단위 그룹핑
-- FFmpeg을 사용한 한글 자막 비디오 burn-in
-
-## 필수 요구사항
-
-### 시스템 요구사항
-- Python 3.7 이상
-- FFmpeg
-
-### Python 패키지
-```bash
-pip install -r requirements.txt
+Claude Code에서 프로젝트를 열고 이렇게 말하면 됩니다:
+```
+"이 유튜브 영상에 한글 자막 넣어줘: https://youtube.com/watch?v=..."
 ```
 
-주요 패키지:
-- `yt-dlp` - YouTube 비디오 다운로드
-- `pysrt` - SRT 자막 파일 처리
-
-### FFmpeg 설치
-
-**macOS:**
-```bash
-brew install ffmpeg
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install ffmpeg
-```
-
-## 디렉토리 구조
-
-```
-auto_bzcf/
-├── .claude/
-│   └── skills/
-│       └── youtube-kr-subtitle/    # Claude Code Skill
-│           ├── SKILL.md            # Skill 정의 및 워크플로우
-│           └── scripts/            # 처리 스크립트들
-│               ├── download_youtube.py
-│               ├── extract_subtitle_text.py
-│               ├── merge_translated_subtitle.py
-│               └── process_video.py
-├── downloads/            # 다운로드된 비디오 및 원본 자막 (임시)
-├── output/              # 최종 처리된 비디오 (한글 자막 포함)
-├── venv/                # Python 가상환경
-└── README.md
-```
-
-## 사용 방법
-
-### 스크립트 기반 워크플로우 (권장)
-
-#### 1단계: 비디오 및 영어 자막 다운로드
-
-```bash
-python scripts/download_youtube.py "<youtube_url>" downloads/
-```
-
-**출력 예시:**
-```json
-{
-  "video_path": "downloads/VideoTitle.mp4",
-  "subtitle_path": "downloads/VideoTitle.en.srt",
-  "title": "Video Title",
-  "description": "Video description...",
-  "duration": 1659,
-  "video_id": "deMrq2uzRKA"
-}
-```
-
-#### 2단계: 자막 텍스트 추출
-
-```bash
-python scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
-```
-
-**출력 예시:**
-```json
-{
-  "texts": [
-    "첫 번째 자막 텍스트",
-    "두 번째 자막 텍스트"
-  ],
-  "metadata": {
-    "total_count": 809,
-    "processed_count": 235
-  }
-}
-```
-
-이 스크립트는 자동으로:
-- YouTube의 오버랩 타임스탬프 수정
-- 150ms 이하의 짧은 중복 자막 제거
-- 연속된 자막을 문장 단위로 그룹핑 (최대 300ms 간격, 150자 이하)
-
-#### 3단계: 한글로 번역
-
-추출된 `texts` 배열을 한글로 번역하여 JSON 파일로 저장합니다.
-
-**번역된 텍스트 예시 (translated_texts.json):**
-```json
-[
-  "첫 번째 번역된 자막",
-  "두 번째 번역된 자막"
-]
-```
-
-**중요:** 번역된 배열의 길이는 원본 자막 개수와 정확히 일치해야 합니다.
-
-#### 4단계: 번역된 텍스트와 타임스탬프 병합
-
-```bash
-python scripts/merge_translated_subtitle.py \
-  downloads/VideoTitle.en.srt \
-  translated_texts.json \
-  downloads/VideoTitle.ko.srt
-```
-
-**출력 예시:**
-```json
-{
-  "success": true,
-  "subtitle_count": 235,
-  "output_path": "downloads/VideoTitle.ko.srt"
-}
-```
-
-#### 5단계: 비디오에 한글 자막 burn-in
-
-```bash
-python scripts/process_video.py \
-  downloads/VideoTitle.mp4 \
-  downloads/VideoTitle.ko.srt \
-  output/VideoTitle_korean.mp4 \
-  Arial 24
-```
-
-**매개변수:**
-- `video_path`: 원본 비디오 파일 경로
-- `subtitle_path`: 한글 SRT 파일 경로
-- `output_path`: 출력 비디오 파일 경로
-- `font_name`: 글꼴 이름 (선택사항, 기본값: Arial)
-- `font_size`: 글꼴 크기 (선택사항, 기본값: 24)
-
-**출력 예시:**
-```json
-{
-  "success": true,
-  "output_path": "output/VideoTitle_korean.mp4",
-  "file_size_mb": 311.22
-}
-```
-
-### 전체 워크플로우 예시
-
-```bash
-# 1. 비디오 다운로드
-python scripts/download_youtube.py "https://www.youtube.com/watch?v=VIDEO_ID" downloads/
-
-# 2. 자막 텍스트 추출
-python scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
-
-# 3. 번역 (수동 또는 번역 API 사용)
-# subtitle_texts.json의 texts를 번역하여 translated_texts.json 생성
-
-# 4. 번역과 타임스탬프 병합
-python scripts/merge_translated_subtitle.py \
-  downloads/VideoTitle.en.srt \
-  translated_texts.json \
-  downloads/VideoTitle.ko.srt
-
-# 5. 비디오에 자막 burn-in
-python scripts/process_video.py \
-  downloads/VideoTitle.mp4 \
-  downloads/VideoTitle.ko.srt \
-  output/VideoTitle_korean.mp4
-```
-
-### 실제 사용 예시
-
-```bash
-# Michael Truell Cursor 인터뷰 비디오
-python scripts/download_youtube.py "https://www.youtube.com/watch?v=deMrq2uzRKA" downloads/
-
-python scripts/extract_subtitle_text.py "downloads/Michael Truell： How Cursor Builds at the Speed of AI.en.srt" > downloads/subtitle_texts.json
-
-# 번역 후...
-
-python scripts/merge_translated_subtitle.py \
-  "downloads/Michael Truell： How Cursor Builds at the Speed of AI.en.srt" \
-  downloads/translated_texts.json \
-  "downloads/Michael Truell How Cursor Builds at the Speed of AI.ko.srt"
-
-python scripts/process_video.py \
-  "downloads/Michael Truell： How Cursor Builds at the Speed of AI.mp4" \
-  "downloads/Michael Truell How Cursor Builds at the Speed of AI.ko.srt" \
-  "output/Michael_Truell_Cursor_korean_$(date +%Y%m%d_%H%M%S).mp4" \
-  Arial 20
-```
-
-## 스크립트 상세 설명
-
-### download_youtube.py
-YouTube 비디오와 영어 자막을 다운로드합니다.
-
-**사용법:**
-```bash
-python scripts/download_youtube.py "<youtube_url>" <output_dir>
-```
-
-**출력:** 비디오 메타데이터 JSON (title, description, duration, video_id 등)
-
-### extract_subtitle_text.py
-SRT 파일을 전처리하고 번역할 텍스트 배열을 추출합니다.
-
-**사용법:**
-```bash
-python scripts/extract_subtitle_text.py <subtitle_path>
-```
-
-**자동 처리:**
-- YouTube의 오버랩 타임스탬프 수정
-- 짧은 중복 자막 제거
-- 문장 단위 그룹핑
-
-**출력:** texts 배열과 메타데이터를 포함한 JSON
-
-### merge_translated_subtitle.py
-번역된 텍스트를 원본 SRT의 타임스탬프와 병합하여 한글 SRT 파일을 생성합니다.
-
-**사용법:**
-```bash
-python scripts/merge_translated_subtitle.py <original_srt> <translated_json> <output_srt>
-```
-
-**중요:** 번역된 텍스트 개수는 원본 자막 개수와 정확히 일치해야 합니다.
-
-### process_video.py
-FFmpeg을 사용하여 한글 자막을 비디오에 burn-in합니다.
-
-**사용법:**
-```bash
-python scripts/process_video.py <video_path> <subtitle_path> <output_path> [font_name] [font_size]
-```
-
-**자막 스타일:**
-- 흰색 텍스트 (&HFFFFFF)
-- 검은색 외곽선 (&H000000)
-- 반투명 검은색 배경 (&H80000000)
-- 외곽선 두께: 2
-- 하단 여백: 20
-
-## 주의사항
-
-### YouTube 자막 오버랩 문제
-YouTube 자동 생성 자막은 롤링 캡션 형식으로 의도적으로 타임스탬프가 겹칩니다. `extract_subtitle_text.py`가 이를 자동으로 수정합니다.
-
-### 현재 제한사항
-- 영어 자막이 있는 비디오만 처리 가능 (자동 생성 또는 수동)
-- 자막이 없는 비디오는 현재 버전에서 지원하지 않음
-- 긴 비디오의 경우 FFmpeg 처리에 시간이 걸릴 수 있음
-
-### FFmpeg 경로 처리
-`process_video.py`는 Windows 경로와 특수 문자를 처리하기 위한 특별한 경로 이스케이핑 로직을 포함합니다.
-
-## 트러블슈팅
-
-### FFmpeg을 찾을 수 없음
-```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt-get install ffmpeg
-```
-
-### 자막 개수 불일치 오류
-번역된 텍스트 배열의 길이가 원본 자막 개수와 일치하는지 확인하세요:
-```bash
-# 원본 자막 개수 확인
-cat subtitle_texts.json | python3 -c "import sys, json; data = json.load(sys.stdin); print(f'Count: {len(data[\"texts\"])}')"
-
-# 번역본 개수 확인
-cat translated_texts.json | python3 -c "import sys, json; data = json.load(sys.stdin); print(f'Count: {len(data)}')"
-```
-
-### 가상환경 활성화
-항상 가상환경 내에서 작업하세요:
-```bash
-# 가상환경 생성
-python3 -m venv venv
-
-# 활성화
-source venv/bin/activate  # macOS/Linux
-# 또는
-venv\Scripts\activate  # Windows
-
-# 의존성 설치
-pip install -r requirements.txt
-```
-
-## 라이선스
-
-이 프로젝트는 교육 및 공익 목적으로 제공됩니다.
-
-## 면책 조항
-
-원본 비디오의 저작권은 원저작권자에게 있습니다. YouTube 시스템을 통해 저작권 허가를 확인하며, 시스템 내 미확인 시 별도 이메일로 허가를 구합니다.
-
-본 도구의 목적은 교육, 동기부여, 아이디어 공유 등 공익 목적이며, YouTube 수익은 전혀 발생하지 않습니다.
+그러면 Claude가 자동으로 전체 과정을 진행합니다.
+
+## 무엇을 할 수 있나요?
+
+**자동 영상 처리**
+- YouTube 영상과 영어 자막을 자동으로 가져옵니다
+- 자막의 기술적 문제(겹치는 타이밍, 중복 등)를 자동으로 해결합니다
+- 완성된 영상에는 한글 자막이 영구적으로 합성되어 있습니다
+
+**똑똑한 번역**
+- Claude가 영상의 제목, 설명, 내용을 모두 분석합니다
+- 웹에서 관련 정보를 찾아 전문 용어를 정확히 번역합니다
+- 영상의 분위기(교육적, 캐주얼, 공식적 등)에 맞춰 번역 스타일을 조절합니다
+- 한국어로 자연스럽게 읽히도록 문장 구조를 재구성합니다
+
+**품질 보장**
+- 번역 전후의 자막 개수가 정확히 일치하는지 검증합니다
+- 전문 용어의 일관성을 유지합니다
+- 자막 타이밍과 번역이 정확히 동기화됩니다
+
+## 시작하기
+
+### 필요한 것
+
+- Python 3.7 이상이 설치되어 있어야 합니다
+- FFmpeg이 설치되어 있어야 합니다 (영상 처리 도구)
+- Claude Code에서 이 프로젝트를 열어야 합니다
+
+자세한 설정 방법은 `.claude/skills/youtube-kr-subtitle/SKILL.md` 파일을 참고하세요.
+
+## 작동 원리
+
+이 프로젝트는 크게 6단계로 작동합니다:
+
+**1단계: 영상 가져오기**
+YouTube에서 영상과 영어 자막을 다운로드합니다. 영상의 제목, 설명, 길이 같은 정보도 함께 수집합니다.
+
+**2단계: 자막 정리**
+YouTube 자막은 종종 기술적 문제가 있습니다. 타이밍이 겹치거나, 같은 내용이 반복되거나, 너무 짧게 쪼개져 있는 경우가 많습니다. 이 단계에서 이런 문제들을 자동으로 해결하고, 자막을 자연스러운 문장 단위로 묶습니다.
+
+**3단계: 맥락 파악**
+Claude가 영상을 분석합니다. 어떤 주제인지, 어떤 전문 용어가 사용되는지, 어떤 분위기인지 파악합니다. 
+
+[중요] 반드시 웹에서 관련 정보를 찾아봅니다.
+
+**4단계: 번역**
+단순 기계 번역이 아닌, 맥락을 이해한 번역을 합니다. 전문 용어는 일관되게 번역하고, 영상의 분위기에 맞게 문체를 조절하며, 한국어로 자연스럽게 읽히도록 문장을 재구성합니다.
+
+**5단계: 자막 파일 생성**
+번역된 내용을 원본 자막의 타이밍 정보와 결합하여 한글 자막 파일을 만듭니다.
+
+**6단계: 영상 합성**
+FFmpeg을 사용하여 한글 자막을 영상에 직접 합성합니다. 완성된 영상은 자막이 영구적으로 포함되어 있어 별도의 자막 파일 없이도 볼 수 있습니다.
+
+## 기술적 특징
+
+**자막 타이밍 문제 자동 해결**
+YouTube 자동 생성 자막은 "롤링 캡션" 방식을 사용하여 의도적으로 타이밍이 겹칩니다. 이 프로젝트는 이를 자동으로 감지하고 수정하여 깔끔한 자막을 만듭니다.
+
+**번역 품질 검증**
+번역 전후의 자막 개수가 정확히 일치하는지 자동으로 확인합니다. 이를 통해 자막과 타이밍이 어긋나는 것을 방지합니다.
+
+**자동 문장 병합**
+너무 짧게 쪼개진 자막을 자연스러운 문장 단위로 묶어줍니다. 이렇게 하면 번역 품질이 더 좋아지고, 자막을 읽기도 편해집니다.
+
+## 현재 제한사항
+
+- 영어 자막이 있는 영상만 처리할 수 있습니다 (자동 생성 자막도 가능)
+- 자막이 전혀 없는 영상은 현재 지원하지 않습니다
+- 긴 영상은 처리 시간이 오래 걸릴 수 있습니다
+
+## 프로젝트 구조
+
+프로젝트 파일은 다음과 같이 구성되어 있습니다:
+
+- `.claude/skills/youtube-kr-subtitle/` - Claude Code 스킬의 핵심 부분
+  - `SKILL.md` - 상세한 사용 방법과 워크플로우 설명
+  - `scripts/` - 각 단계를 처리하는 Python 스크립트들
+- `downloads/` - 다운로드한 영상과 원본 자막 임시 저장소
+- `output/` - 한글 자막이 합성된 최종 영상 저장소
+
+## 더 알아보기
+
+기술적인 세부사항이나 스크립트 사용법이 궁금하다면 `.claude/skills/youtube-kr-subtitle/SKILL.md` 파일을 참고하세요. 각 단계의 상세한 설명과 예시가 포함되어 있습니다.
+
+## 저작권 관련
+
+이 프로젝트는 교육 및 공익 목적으로 제공됩니다. 원본 영상의 저작권은 원저작권자에게 있으며, YouTube 시스템을 통해 저작권 허가를 확인합니다. 본 도구는 교육, 동기부여, 아이디어 공유 등의 목적으로 사용되며, YouTube 수익은 전혀 발생하지 않습니다.
 
 삭제, 수정 등 요청사항이 있으시면 문의해주시기 바랍니다.

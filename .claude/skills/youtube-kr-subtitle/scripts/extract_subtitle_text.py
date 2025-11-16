@@ -127,7 +127,8 @@ if __name__ == "__main__":
         print("Usage: python extract_subtitle_text.py <srt_file_path>", file=sys.stderr)
         sys.exit(1)
 
-    subtitle_path = sys.argv[1]
+    # Remove surrounding quotes from path if present
+    subtitle_path = sys.argv[1].strip('"')
 
     result = extract_subtitle_text(subtitle_path)
 

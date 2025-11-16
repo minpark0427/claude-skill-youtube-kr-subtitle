@@ -1,164 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This repository provides the `youtube-kr-subtitle` skill for Claude Code. **All detailed workflow instructions are in `.claude/skills/youtube-kr-subtitle/SKILL.md`.**
 
 ## Project Overview
 
-YouTube Korean Subtitle Auto-Insertion Service - A Python application that automatically downloads YouTube videos, extracts/generates English subtitles, translates them to Korean, and burns the Korean subtitles directly into the video using FFmpeg.
+YouTube Korean Subtitle Auto-Insertion Service - Downloads YouTube videos, translates English subtitles to Korean using Claude's context-aware translation, and burns Korean subtitles into the video.
 
-## Development Commands
+## Quick Start
 
-### Environment Setup
 ```bash
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# or: venv\Scripts\activate  # Windows
+# First-time setup (auto-configures environment)
+python3 .claude/skills/youtube-kr-subtitle/scripts/setup_check.py --auto-fix
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Prerequisites
-FFmpeg must be installed on the system:
-```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt-get install ffmpeg
-```
-
-### Using the Skill
-This repository includes a Claude Code skill for automated processing. When you clone this repo and open it in Claude Code, the `youtube-kr-subtitle` skill is automatically available.
-
-Simply request:
-```
+# Or use the skill directly in Claude Code
 "Add Korean subtitles to this YouTube video: <youtube_url>"
 ```
 
-The skill will automatically execute the complete workflow.
+## Prerequisites
 
-### Manual Script Usage (Advanced)
-Scripts are located in `.claude/skills/youtube-kr-subtitle/scripts/`:
+- **Python 3.7+** (auto-checked by setup_check.py)
+- **FFmpeg** (must be installed manually):
+  ```bash
+  brew install ffmpeg              # macOS
+  sudo apt-get install ffmpeg      # Ubuntu/Debian
+  ```
 
-```bash
-# 1. Download video and subtitles
-python .claude/skills/youtube-kr-subtitle/scripts/download_youtube.py "<youtube_url>" downloads/
+## Key Implementation Notes
 
-# 2. Extract subtitle texts
-python .claude/skills/youtube-kr-subtitle/scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
+When working with this codebase, always remember:
 
-# 3. Translate (manual or external API)
-# Translate the texts array to Korean and save as translated_texts.json
+1. **Use SKILL.md as primary reference** - The complete workflow, script documentation, and usage instructions are in `.claude/skills/youtube-kr-subtitle/SKILL.md`
 
-# 4. Merge translations with timestamps
-python .claude/skills/youtube-kr-subtitle/scripts/merge_translated_subtitle.py \
-  downloads/VideoTitle.en.srt \
-  translated_texts.json \
-  downloads/VideoTitle.ko.srt
+2. **Subtitle preprocessing is critical** - `extract_subtitle_text.py` fixes YouTube's overlapping timestamp format. Never bypass this step.
 
-# 5. Burn subtitles into video
-python .claude/skills/youtube-kr-subtitle/scripts/process_video.py \
-  downloads/VideoTitle.mp4 \
-  downloads/VideoTitle.ko.srt \
-  output/VideoTitle_korean.mp4
-```
+3. **Translation count must match** - `merge_translated_subtitle.py` validates that translation array length equals preprocessed subtitle count.
 
-## Architecture
-
-### Processing Pipeline
-The `youtube-kr-subtitle` skill uses a modular workflow with 6 stages:
-
-1. **Video Download** - Uses yt-dlp to download video and English subtitles
-2. **Subtitle Extraction** - Preprocesses subtitles and extracts text array
-3. **Context Gathering** - Analyzes video metadata and performs web research
-4. **Translation** - Claude translates texts to Korean with full context awareness
-5. **Subtitle Merging** - Combines translations with original timestamps
-6. **Video Processing** - Burns Korean subtitles into video using FFmpeg
-
-### Script Responsibilities
-
-All scripts are located in `.claude/skills/youtube-kr-subtitle/scripts/`:
-
-**download_youtube.py**
-- Downloads YouTube video and English subtitles using yt-dlp
-- Tries multiple English subtitle variants (en, en-US, en-GB)
-- Returns JSON with video metadata (video_path, subtitle_path, title, description, duration, video_id)
-
-**extract_subtitle_text.py**
-- Critical script that handles YouTube's unique subtitle format issue
-- `fix_overlapping_subtitles()`: YouTube auto-generated subtitles use 2-line rolling caption style where timestamps intentionally overlap. Adjusts each subtitle's end time to 1ms before the next subtitle's start time
-- `remove_short_duplicates()`: Removes subtitles shorter than 150ms that have duplicate text
-- `group_subtitles()`: Merges consecutive subtitles into sentence units (max 300ms gap, max 150 chars)
-- Returns JSON with preprocessed text array ready for translation
-
-**merge_translated_subtitle.py**
-- Merges translated text array with original SRT timestamps
-- Applies same preprocessing as extract_subtitle_text.py to ensure alignment
-- Creates Korean SRT file with proper timing
-- Validates that translation count matches original subtitle count
-
-**process_video.py**
-- Uses FFmpeg to burn Korean subtitles into video
-- Applies force_style for consistent appearance: white text (&HFFFFFF), black outline (&H000000), semi-transparent background (&H80000000)
-- Audio stream is copied without re-encoding for faster processing
-- Includes FFmpeg availability check and path escaping for special characters
-
-### Data Flow
-
-```
-YouTube URL
-    ↓ download_youtube.py
-downloads/{title}.mp4 (video)
-downloads/{title}.en.srt (original subtitles)
-    ↓ extract_subtitle_text.py
-subtitle_texts.json (preprocessed text array)
-    ↓ Claude Translation (with context)
-translated_texts.json (Korean text array)
-    ↓ merge_translated_subtitle.py
-downloads/{title}.ko.srt (Korean subtitles)
-    ↓ process_video.py
-output/{title}_korean_{timestamp}.mp4 (final video)
-```
-
-### Directory Structure
-- `.claude/skills/youtube-kr-subtitle/` - Claude Code skill with scripts
-- `downloads/` - Temporary storage for downloaded videos and original subtitles
-- `output/` - Final processed videos with Korean subtitles
-- `venv/` - Python virtual environment (gitignored)
-
-## Known Issues & Limitations
-
-### Subtitle Overlap Problem (Automatically Fixed)
-YouTube auto-generated subtitles intentionally use overlapping timestamps for rolling captions. The extract_subtitle_text.py script automatically detects and fixes this by adjusting end times to prevent multiple captions displaying simultaneously.
-
-### Current Limitations
-- Only processes videos with existing English subtitles (auto-generated or manual)
-- Videos without subtitles are not supported in current version
-- Translation is handled externally (manual or external APIs)
-- Long videos may take significant time for FFmpeg processing
-- Subtitle styling is hardcoded (white text, black outline, semi-transparent background)
-
-## Future Enhancements
-
-Potential improvements:
-- Whisper STT integration for videos without existing subtitles
-- Automated translation API integration
-- Customizable subtitle styling parameters (font, color, position, size)
-- Batch processing support
-- Web UI
-
-## Important Implementation Notes
-
-### Subtitle Timestamp Handling
-The extract_subtitle_text.py script includes critical preprocessing logic for YouTube's rolling caption format. The fix_overlapping_subtitles() function implements an industry-standard algorithm. Do not remove or bypass this preprocessing step as it's essential for clean subtitle display.
-
-### Translation Count Matching
-The merge_translated_subtitle.py script validates that the number of translations exactly matches the number of preprocessed subtitles. This ensures proper alignment between Korean text and timing information.
-
-### FFmpeg Path Escaping
-The process_video.py script includes special path escaping logic to handle Windows paths and special characters (including colons in filenames). Maintain this escaping when modifying FFmpeg commands.
-
-### Virtual Environment Usage
-Always work within the venv. The project uses standard Python packages (yt-dlp, pysrt) but requires FFmpeg system dependency which must be installed separately.
+4. **Virtual environment required** - All scripts expect to run within `venv/` with dependencies from `requirements.txt`.
