@@ -1,0 +1,4 @@
+yt-dlp>=2024.1.0
+ffmpeg-python>=0.2.0
+deep-translator>=1.11.4
+pysrt>=1.1.2

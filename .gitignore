@@ -1,0 +1,9 @@
+downloads/
+output/
+*.pyc
+__pycache__/
+*.mp4
+*.srt
+*.vtt
+.env
+venv/
