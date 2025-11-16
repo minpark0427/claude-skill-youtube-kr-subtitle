@@ -7,3 +7,10 @@ __pycache__/
 *.vtt
 .env
 venv/
+.DS_Store
+
+# Skill build artifacts
+skills/dist/
+
+# Claude Code configuration (keep skills accessible)
+# Note: .claude/ directory contains project-level skills configuration
