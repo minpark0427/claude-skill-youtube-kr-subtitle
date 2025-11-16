@@ -1,16 +1,19 @@
+# Temporary processing directories
 downloads/
 output/
+
+# Python artifacts
 *.pyc
 __pycache__/
+
+# Media files (generated during processing)
 *.mp4
 *.srt
 *.vtt
+
+# Environment
 .env
 venv/
+
+# System files
 .DS_Store
-
-# Skill build artifacts
-skills/dist/
-
-# Claude Code configuration (keep skills accessible)
-# Note: .claude/ directory contains project-level skills configuration

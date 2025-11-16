@@ -1,11 +1,32 @@
 # YouTube Korean Subtitle Auto-Insertion Service
 
-YouTube 비디오에 한글 자막을 자동으로 삽입하는 Python 애플리케이션입니다. YouTube 비디오를 다운로드하고, 영어 자막을 추출하여 한글로 번역한 후, FFmpeg을 사용하여 비디오에 자막을 burn-in합니다.
+YouTube 비디오에 한글 자막을 자동으로 삽입하는 Claude Code Skill입니다. Claude가 YouTube 비디오를 다운로드하고, 영어 자막을 추출하여 한글로 번역한 후, FFmpeg을 사용하여 비디오에 자막을 burn-in합니다.
+
+## Claude Code Skill
+
+이 레포지토리는 **Claude Code Skill**로 설계되었습니다. Clone하면 바로 사용 가능합니다!
+
+### 빠른 시작
+
+1. 이 레포지토리를 clone합니다:
+   ```bash
+   git clone <repository-url>
+   cd auto_bzcf
+   ```
+
+2. 필수 요구사항을 설치합니다 (아래 참조)
+
+3. Claude Code에서 프로젝트를 열고 요청합니다:
+   ```
+   "이 유튜브 영상에 한글 자막 넣어줘: https://youtube.com/watch?v=..."
+   ```
+
+4. Claude가 자동으로 전체 워크플로우를 실행합니다!
 
 ## 주요 기능
 
 - YouTube 비디오 및 영어 자막 자동 다운로드
-- 영어 자막을 한글로 번역 (수동 또는 번역 API 사용)
+- Claude의 컨텍스트 기반 한글 번역 (비디오 메타데이터 + 웹 검색)
 - YouTube 자막의 오버랩 타임스탬프 자동 수정
 - 짧은 중복 자막 제거 및 문장 단위 그룹핑
 - FFmpeg을 사용한 한글 자막 비디오 burn-in
@@ -41,12 +62,16 @@ sudo apt-get install ffmpeg
 
 ```
 auto_bzcf/
-├── scripts/              # 스크립트 파일들
-│   ├── download_youtube.py
-│   ├── extract_subtitle_text.py
-│   ├── merge_translated_subtitle.py
-│   └── process_video.py
-├── downloads/            # 다운로드된 비디오 및 원본 자막
+├── .claude/
+│   └── skills/
+│       └── youtube-kr-subtitle/    # Claude Code Skill
+│           ├── SKILL.md            # Skill 정의 및 워크플로우
+│           └── scripts/            # 처리 스크립트들
+│               ├── download_youtube.py
+│               ├── extract_subtitle_text.py
+│               ├── merge_translated_subtitle.py
+│               └── process_video.py
+├── downloads/            # 다운로드된 비디오 및 원본 자막 (임시)
 ├── output/              # 최종 처리된 비디오 (한글 자막 포함)
 ├── venv/                # Python 가상환경
 └── README.md

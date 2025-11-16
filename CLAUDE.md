@@ -29,27 +29,37 @@ brew install ffmpeg
 sudo apt-get install ffmpeg
 ```
 
-### Running the Scripts
-The application uses a modular script-based workflow:
+### Using the Skill
+This repository includes a Claude Code skill for automated processing. When you clone this repo and open it in Claude Code, the `youtube-kr-subtitle` skill is automatically available.
+
+Simply request:
+```
+"Add Korean subtitles to this YouTube video: <youtube_url>"
+```
+
+The skill will automatically execute the complete workflow.
+
+### Manual Script Usage (Advanced)
+Scripts are located in `.claude/skills/youtube-kr-subtitle/scripts/`:
 
 ```bash
 # 1. Download video and subtitles
-python scripts/download_youtube.py "<youtube_url>" downloads/
+python .claude/skills/youtube-kr-subtitle/scripts/download_youtube.py "<youtube_url>" downloads/
 
 # 2. Extract subtitle texts
-python scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
+python .claude/skills/youtube-kr-subtitle/scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
 
 # 3. Translate (manual or external API)
 # Translate the texts array to Korean and save as translated_texts.json
 
 # 4. Merge translations with timestamps
-python scripts/merge_translated_subtitle.py \
+python .claude/skills/youtube-kr-subtitle/scripts/merge_translated_subtitle.py \
   downloads/VideoTitle.en.srt \
   translated_texts.json \
   downloads/VideoTitle.ko.srt
 
 # 5. Burn subtitles into video
-python scripts/process_video.py \
+python .claude/skills/youtube-kr-subtitle/scripts/process_video.py \
   downloads/VideoTitle.mp4 \
   downloads/VideoTitle.ko.srt \
   output/VideoTitle_korean.mp4
@@ -58,35 +68,38 @@ python scripts/process_video.py \
 ## Architecture
 
 ### Processing Pipeline
-The application uses a modular script-based workflow with 5 stages:
+The `youtube-kr-subtitle` skill uses a modular workflow with 6 stages:
 
-1. **Video Download** (scripts/download_youtube.py) - Uses yt-dlp to download video and English subtitles
-2. **Subtitle Extraction** (scripts/extract_subtitle_text.py) - Preprocesses subtitles and extracts text array
-3. **Translation** (External/Manual) - Translate texts to Korean (manual or using external APIs)
-4. **Subtitle Merging** (scripts/merge_translated_subtitle.py) - Combines translations with original timestamps
-5. **Video Processing** (scripts/process_video.py) - Burns Korean subtitles into video using FFmpeg
+1. **Video Download** - Uses yt-dlp to download video and English subtitles
+2. **Subtitle Extraction** - Preprocesses subtitles and extracts text array
+3. **Context Gathering** - Analyzes video metadata and performs web research
+4. **Translation** - Claude translates texts to Korean with full context awareness
+5. **Subtitle Merging** - Combines translations with original timestamps
+6. **Video Processing** - Burns Korean subtitles into video using FFmpeg
 
 ### Script Responsibilities
 
-**scripts/download_youtube.py**
+All scripts are located in `.claude/skills/youtube-kr-subtitle/scripts/`:
+
+**download_youtube.py**
 - Downloads YouTube video and English subtitles using yt-dlp
 - Tries multiple English subtitle variants (en, en-US, en-GB)
 - Returns JSON with video metadata (video_path, subtitle_path, title, description, duration, video_id)
 
-**scripts/extract_subtitle_text.py**
+**extract_subtitle_text.py**
 - Critical script that handles YouTube's unique subtitle format issue
 - `fix_overlapping_subtitles()`: YouTube auto-generated subtitles use 2-line rolling caption style where timestamps intentionally overlap. Adjusts each subtitle's end time to 1ms before the next subtitle's start time
 - `remove_short_duplicates()`: Removes subtitles shorter than 150ms that have duplicate text
 - `group_subtitles()`: Merges consecutive subtitles into sentence units (max 300ms gap, max 150 chars)
 - Returns JSON with preprocessed text array ready for translation
 
-**scripts/merge_translated_subtitle.py**
+**merge_translated_subtitle.py**
 - Merges translated text array with original SRT timestamps
 - Applies same preprocessing as extract_subtitle_text.py to ensure alignment
 - Creates Korean SRT file with proper timing
 - Validates that translation count matches original subtitle count
 
-**scripts/process_video.py**
+**process_video.py**
 - Uses FFmpeg to burn Korean subtitles into video
 - Applies force_style for consistent appearance: white text (&HFFFFFF), black outline (&H000000), semi-transparent background (&H80000000)
 - Audio stream is copied without re-encoding for faster processing
@@ -96,21 +109,21 @@ The application uses a modular script-based workflow with 5 stages:
 
 ```
 YouTube URL
-    ↓ scripts/download_youtube.py
+    ↓ download_youtube.py
 downloads/{title}.mp4 (video)
 downloads/{title}.en.srt (original subtitles)
-    ↓ scripts/extract_subtitle_text.py
+    ↓ extract_subtitle_text.py
 subtitle_texts.json (preprocessed text array)
-    ↓ Manual/External Translation
+    ↓ Claude Translation (with context)
 translated_texts.json (Korean text array)
-    ↓ scripts/merge_translated_subtitle.py
+    ↓ merge_translated_subtitle.py
 downloads/{title}.ko.srt (Korean subtitles)
-    ↓ scripts/process_video.py
+    ↓ process_video.py
 output/{title}_korean_{timestamp}.mp4 (final video)
 ```
 
 ### Directory Structure
-- `scripts/` - Modular Python scripts for each processing stage
+- `.claude/skills/youtube-kr-subtitle/` - Claude Code skill with scripts
 - `downloads/` - Temporary storage for downloaded videos and original subtitles
 - `output/` - Final processed videos with Korean subtitles
 - `venv/` - Python virtual environment (gitignored)
