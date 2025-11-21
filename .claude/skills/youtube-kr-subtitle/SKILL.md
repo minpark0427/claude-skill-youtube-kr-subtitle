@@ -1,13 +1,18 @@
 ---
 name: youtube-kr-subtitle
-description: Download YouTube videos, extract English subtitles, translate them to Korean using Claude's own translation capabilities (with video context and web search), and burn Korean subtitles into the video. Use this skill when the user requests Korean subtitle insertion for YouTube videos or asks to translate YouTube content to Korean.
+description: Download YouTube videos, extract English subtitles, and translate them to Korean with two options - (1) Quick automated Google Translate or (2) High-quality Claude translation with full context awareness. Burns Korean subtitles into the video. Use this skill when the user requests Korean subtitle insertion for YouTube videos or asks to translate YouTube content to Korean.
 ---
 
 # YouTube Korean Subtitle Translator
 
 ## Overview
 
-This skill enables Claude to download YouTube videos and create new versions with Korean subtitles burned directly into the video. Unlike traditional approaches that use Google Translate, this skill leverages Claude's own translation capabilities with full context awareness - including video metadata, web research about the content, and understanding of the subject matter.
+This skill enables Claude to download YouTube videos and create new versions with Korean subtitles burned directly into the video. It offers **two translation methods**:
+
+1. **Quick Path:** Fast automated translation using Google Translate (1-2 minutes)
+2. **Quality Path:** Context-aware manual translation by Claude (30-45 minutes, recommended)
+
+The Quality Path leverages Claude's own translation capabilities with full context awareness - including video metadata, web research about the content, and understanding of the subject matter - providing superior quality for professional use.
 
 ## When to Use This Skill
 
@@ -54,19 +59,41 @@ python scripts/setup_check.py --auto-fix
 
 ### Step 1: Download Video and Subtitles
 
-Run the download script to fetch the YouTube video, English subtitles, and metadata:
+**First, create a dedicated project directory for this video:**
 
 ```bash
-python scripts/download_youtube.py "<youtube_url>" downloads/
+# Extract video ID from URL or use timestamp
+VIDEO_ID="m24gQmtUFaA"  # Example from URL
+PROJECT_DIR="projects/${VIDEO_ID}"
+mkdir -p "${PROJECT_DIR}"
+```
+
+**Then run the download script to fetch the YouTube video, English subtitles, and metadata:**
+
+```bash
+python scripts/download_youtube.py "<youtube_url>" "${PROJECT_DIR}/"
 ```
 
 **Output:** JSON containing:
-- `video_path`: Downloaded video file path
-- `subtitle_path`: English subtitle SRT file path (or null if not available)
+- `video_path`: Downloaded video file path (e.g., `projects/m24gQmtUFaA/video.mp4`)
+- `subtitle_path`: English subtitle SRT file path (e.g., `projects/m24gQmtUFaA/video.en.srt`)
 - `title`: Video title
 - `description`: Video description
 - `duration`: Video duration in seconds
 - `video_id`: YouTube video ID
+- `project_dir`: The created project directory path
+
+**Project Directory Structure:**
+```
+projects/m24gQmtUFaA/
+├── video.mp4                    # Downloaded video
+├── video.en.srt                 # English subtitles
+├── subtitle_texts.json          # Extracted texts (Step 2)
+├── video_context.md             # Translation context (Step 3)
+├── translated_texts.json        # Korean translations (Step 4)
+├── video.ko.srt                 # Korean subtitle SRT (Step 5)
+└── video_korean.mp4             # Final output (Step 6)
+```
 
 **Error Handling:** If `subtitle_path` is null, inform the user that the video lacks English subtitles and cannot be processed in the current version.
 
@@ -75,7 +102,7 @@ python scripts/download_youtube.py "<youtube_url>" downloads/
 Extract only the text content from the SRT file for translation:
 
 ```bash
-python scripts/extract_subtitle_text.py <subtitle_path>
+python scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
 ```
 
 **Output:** JSON containing:
@@ -88,7 +115,33 @@ python scripts/extract_subtitle_text.py <subtitle_path>
 - Removes short duplicate subtitles (<150ms)
 - Groups consecutive subtitles into sentence units for better translation context
 
-### Step 3: Gather Context for Translation
+### Step 2.5: Choose Translation Method
+
+**Before proceeding, ask the user to choose their preferred translation approach:**
+
+```
+I've extracted [N] subtitle entries from the video.
+
+How would you like me to translate these to Korean?
+
+Option 1: Quick Automated Translation (Google Translate)
+  ✅ Pros: Very fast (1-2 minutes)
+  ❌ Cons: Lower quality, mistranslations, no context awareness
+  📊 Best for: Quick previews, personal use, non-critical content
+
+Option 2: High-Quality Claude Translation (Recommended)
+  ✅ Pros: Context-aware, accurate terminology, cultural adaptation
+  ❌ Cons: Takes longer (30-45 minutes for ~400 entries)
+  📊 Best for: Professional use, publishing, technical/educational content
+
+Which would you prefer? (1 or 2)
+```
+
+**Based on the user's choice:**
+- **If Option 1 (Quick):** Skip to Step 4b (Automated Translation)
+- **If Option 2 (Quality):** Continue to Step 3 (Context Gathering)
+
+### Step 3: Gather Context for Translation (Quality Path Only)
 
 Before translating, build comprehensive context to ensure high-quality, contextually-aware translation:
 
@@ -115,7 +168,7 @@ Save findings to a context file for reference during translation.
 
 #### 3c. Create Translation Context File
 
-Write a context file (e.g., `downloads/video_context.md`) containing:
+Write a context file in the project directory (`${PROJECT_DIR}/video_context.md`) containing:
 
 ```markdown
 # Translation Context for [Video Title]
@@ -136,7 +189,7 @@ Write a context file (e.g., `downloads/video_context.md`) containing:
 [Any web research findings, cultural considerations, or translation guidelines]
 ```
 
-### Step 4: Translate Subtitles with Claude
+### Step 4a: Translate Subtitles with Claude (Quality Path)
 
 Now perform the actual translation using the context gathered above. This is where Claude's capabilities shine:
 
@@ -161,13 +214,57 @@ Now perform the actual translation using the context gathered above. This is whe
 ]
 ```
 
-Save this to a file like `downloads/translated_texts.json`.
+Save this to the project directory: `${PROJECT_DIR}/translated_texts.json`
 
 **Quality Checks:**
 - Verify the array length matches the original subtitle count
 - Ensure no entries are empty (unless the original was empty)
 - Check that technical terms are consistently translated
 - Confirm the tone matches the video's style
+
+### Step 4b: Automated Translation (Quick Path)
+
+**Alternative quick translation method using automated tools:**
+
+Create a Python script using `deep-translator` for automated Google Translate:
+
+```python
+from deep_translator import GoogleTranslator
+import json
+import os
+
+# Set your project directory
+PROJECT_DIR = "projects/m24gQmtUFaA"  # Use actual video ID
+
+# Load subtitle texts from Step 2
+with open(f'{PROJECT_DIR}/subtitle_texts.json', 'r') as f:
+    texts = json.load(f)['texts']
+
+# Translate using Google Translate
+translator = GoogleTranslator(source='en', target='ko')
+translated = []
+
+for i, text in enumerate(texts):
+    if text.strip():
+        translated.append(translator.translate(text))
+    else:
+        translated.append(text)
+
+    if (i + 1) % 10 == 0:
+        print(f"Progress: {i + 1}/{len(texts)}")
+
+# Save translated texts to project directory
+with open(f'{PROJECT_DIR}/translated_texts.json', 'w', encoding='utf-8') as f:
+    json.dump(translated, f, ensure_ascii=False, indent=2)
+```
+
+**⚠️ Important Limitations:**
+- No context awareness or terminology consistency
+- May produce mistranslations, especially for technical content
+- Not suitable for professional or published content
+- Recommended only for quick previews or personal use
+
+**Output:** Same format as Step 4a - JSON array of translated strings saved to `translated_texts.json`
 
 ### Step 5: Merge Translated Text with SRT Timestamps
 
@@ -180,9 +277,9 @@ python scripts/merge_translated_subtitle.py <original_srt> <translated_json> <ou
 **Example:**
 ```bash
 python scripts/merge_translated_subtitle.py \
-  downloads/video.en.srt \
-  downloads/translated_texts.json \
-  downloads/video.ko.srt
+  "${PROJECT_DIR}/video.en.srt" \
+  "${PROJECT_DIR}/translated_texts.json" \
+  "${PROJECT_DIR}/video.ko.srt"
 ```
 
 **Output:** JSON containing:
@@ -201,16 +298,25 @@ python scripts/process_video.py <video_path> <korean_srt> <output_path> [font_na
 **Example:**
 ```bash
 python scripts/process_video.py \
-  downloads/video.mp4 \
-  downloads/video.ko.srt \
-  output/video_korean.mp4 \
-  Arial 24
+  "${PROJECT_DIR}/video.mp4" \
+  "${PROJECT_DIR}/video.ko.srt" \
+  "${PROJECT_DIR}/video_korean.mp4" \
+  Arial 16
 ```
+
+**Font Size Guidelines for Korean Text:**
+- **FontSize=16** - Recommended default (good readability without being intrusive)
+- **FontSize=14** - Smaller, for videos with lots of on-screen text
+- **FontSize=18** - Slightly larger, for longer viewing distances
+- **FontSize=20-24** - Large, only for accessibility or specific requirements
+
+**Note:** Korean characters are typically more complex than Latin characters, so they appear larger at the same font size. A font size of 16-18 for Korean provides similar visual weight to 20-24 for English text.
 
 **Output:** JSON containing:
 - `success`: boolean
 - `output_path`: path to final video with Korean subtitles
 - `file_size_mb`: size of output file
+- `font_settings`: applied font name and size
 
 **Note:** FFmpeg must be installed on the system. The script checks for FFmpeg availability and provides installation instructions if needed.
 
@@ -220,44 +326,70 @@ python scripts/process_video.py \
 # 0. Check environment setup (first time only)
 python scripts/setup_check.py --auto-fix
 
-# 1. Download video and subtitles
-python scripts/download_youtube.py "https://www.youtube.com/watch?v=VIDEO_ID" downloads/
+# 1. Create project directory and download video
+VIDEO_ID="m24gQmtUFaA"
+PROJECT_DIR="projects/${VIDEO_ID}"
+mkdir -p "${PROJECT_DIR}"
+python scripts/download_youtube.py "https://www.youtube.com/watch?v=${VIDEO_ID}" "${PROJECT_DIR}/"
 
 # 2. Extract subtitle texts
-python scripts/extract_subtitle_text.py downloads/VideoTitle.en.srt > subtitle_texts.json
+python scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
 
+# 2.5. Choose translation method (user decision)
+# Option 1: Quick automated translation (Step 4b)
+# Option 2: Quality Claude translation (Steps 3-4a)
+
+# [IF OPTION 2 CHOSEN]
 # 3. Gather context (manual step by Claude)
 # - Analyze video metadata
 # - Perform web searches
-# - Create context file
+# - Create ${PROJECT_DIR}/video_context.md
 
-# 4. Translate with Claude (manual step)
+# 4a. Translate with Claude (manual step)
 # - Read context file
 # - Translate each subtitle text
-# - Save to translated_texts.json
+# - Save to ${PROJECT_DIR}/translated_texts.json
+
+# [IF OPTION 1 CHOSEN]
+# 4b. Run automated translation script (saves to same location)
 
 # 5. Merge translations with timestamps
 python scripts/merge_translated_subtitle.py \
-  downloads/VideoTitle.en.srt \
-  translated_texts.json \
-  downloads/VideoTitle.ko.srt
+  "${PROJECT_DIR}/video.en.srt" \
+  "${PROJECT_DIR}/translated_texts.json" \
+  "${PROJECT_DIR}/video.ko.srt"
 
-# 6. Burn subtitles into video
+# 6. Burn subtitles into video (with recommended font size for Korean)
 python scripts/process_video.py \
-  downloads/VideoTitle.mp4 \
-  downloads/VideoTitle.ko.srt \
-  output/VideoTitle_korean.mp4
+  "${PROJECT_DIR}/video.mp4" \
+  "${PROJECT_DIR}/video.ko.srt" \
+  "${PROJECT_DIR}/video_korean.mp4" \
+  Arial 16
+
+# Final output: projects/m24gQmtUFaA/video_korean.mp4
 ```
 
 ## Key Advantages Over Automated Translation
 
-This skill provides superior translation quality because:
+This skill offers **two translation approaches**:
+
+### Quality Path (Option 2 - Recommended)
+Superior translation quality through Claude's capabilities:
 
 1. **Context-Aware:** Claude understands the video's subject matter through metadata and web research
 2. **Terminology Consistency:** Establishes and maintains consistent translation of key terms
 3. **Cultural Adaptation:** Adapts content appropriately for Korean audiences
 4. **Tone Matching:** Maintains the original video's tone and style
 5. **Quality Control:** Claude can review and refine translations before finalizing
+
+### Quick Path (Option 1 - Fast but Lower Quality)
+Automated Google Translate for speed:
+
+1. **Speed:** Translates 400+ entries in 1-2 minutes
+2. **Simplicity:** No manual translation required
+3. **Trade-offs:** Lower accuracy, no context awareness, potential mistranslations
+
+**Recommendation:** Use Quality Path for any content that will be shared, published, or used professionally. Use Quick Path only for personal previews or non-critical content.
 
 ## Prerequisites
 
