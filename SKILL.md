@@ -22,6 +22,15 @@ Use this skill when users request:
 - "Download this video and burn Korean subtitles into it"
 - "Create a Korean version of this YouTube video"
 
+## Important: Working Directory
+
+**All project directories are created in the user's current working directory**, not in the skill's installation directory. This allows you to organize your YouTube subtitle projects anywhere you want.
+
+When invoking this skill, Claude will:
+- Use absolute paths to reference the skill's scripts (in `.claude/skills/youtube-kr-subtitle/`)
+- Create the `projects/` folder in your current working directory
+- Store all downloaded videos and generated files in your local project structure
+
 ## Workflow
 
 ### Step 0: Environment Setup Check (First Time Only)
@@ -29,7 +38,7 @@ Use this skill when users request:
 Before processing any videos, verify that the environment is properly configured:
 
 ```bash
-python scripts/setup_check.py
+python ~/.claude/skills/youtube-kr-subtitle/scripts/setup_check.py
 ```
 
 This script checks:
@@ -40,7 +49,7 @@ This script checks:
 
 **Auto-fix mode:** To automatically create venv and install packages:
 ```bash
-python scripts/setup_check.py --auto-fix
+python ~/.claude/skills/youtube-kr-subtitle/scripts/setup_check.py --auto-fix
 ```
 
 **Output:** JSON containing:
@@ -71,7 +80,7 @@ mkdir -p "${PROJECT_DIR}"
 **Then run the download script to fetch the YouTube video, English subtitles, and metadata:**
 
 ```bash
-python scripts/download_youtube.py "<youtube_url>" "${PROJECT_DIR}/"
+python ~/.claude/skills/youtube-kr-subtitle/scripts/download_youtube.py "<youtube_url>" "${PROJECT_DIR}/"
 ```
 
 **Output:** JSON containing:
@@ -102,7 +111,7 @@ projects/m24gQmtUFaA/
 Extract only the text content from the SRT file for translation:
 
 ```bash
-python scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
+python ~/.claude/skills/youtube-kr-subtitle/scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
 ```
 
 **Output:** JSON containing:
@@ -271,12 +280,12 @@ with open(f'{PROJECT_DIR}/translated_texts.json', 'w', encoding='utf-8') as f:
 Combine the translated texts with the original SRT timing information:
 
 ```bash
-python scripts/merge_translated_subtitle.py <original_srt> <translated_json> <output_srt>
+python ~/.claude/skills/youtube-kr-subtitle/scripts/merge_translated_subtitle.py <original_srt> <translated_json> <output_srt>
 ```
 
 **Example:**
 ```bash
-python scripts/merge_translated_subtitle.py \
+python ~/.claude/skills/youtube-kr-subtitle/scripts/merge_translated_subtitle.py \
   "${PROJECT_DIR}/video.en.srt" \
   "${PROJECT_DIR}/translated_texts.json" \
   "${PROJECT_DIR}/video.ko.srt"
@@ -292,12 +301,12 @@ python scripts/merge_translated_subtitle.py \
 Use FFmpeg to hardcode the Korean subtitles into the video:
 
 ```bash
-python scripts/process_video.py <video_path> <korean_srt> <output_path> [font_name] [font_size]
+python ~/.claude/skills/youtube-kr-subtitle/scripts/process_video.py <video_path> <korean_srt> <output_path> [font_name] [font_size]
 ```
 
 **Example:**
 ```bash
-python scripts/process_video.py \
+python ~/.claude/skills/youtube-kr-subtitle/scripts/process_video.py \
   "${PROJECT_DIR}/video.mp4" \
   "${PROJECT_DIR}/video.ko.srt" \
   "${PROJECT_DIR}/video_korean.mp4" \
@@ -324,16 +333,16 @@ python scripts/process_video.py \
 
 ```bash
 # 0. Check environment setup (first time only)
-python scripts/setup_check.py --auto-fix
+python ~/.claude/skills/youtube-kr-subtitle/scripts/setup_check.py --auto-fix
 
 # 1. Create project directory and download video
 VIDEO_ID="m24gQmtUFaA"
 PROJECT_DIR="projects/${VIDEO_ID}"
 mkdir -p "${PROJECT_DIR}"
-python scripts/download_youtube.py "https://www.youtube.com/watch?v=${VIDEO_ID}" "${PROJECT_DIR}/"
+python ~/.claude/skills/youtube-kr-subtitle/scripts/download_youtube.py "https://www.youtube.com/watch?v=${VIDEO_ID}" "${PROJECT_DIR}/"
 
 # 2. Extract subtitle texts
-python scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
+python ~/.claude/skills/youtube-kr-subtitle/scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJECT_DIR}/subtitle_texts.json"
 
 # 2.5. Choose translation method (user decision)
 # Option 1: Quick automated translation (Step 4b)
@@ -354,19 +363,20 @@ python scripts/extract_subtitle_text.py "${PROJECT_DIR}/video.en.srt" > "${PROJE
 # 4b. Run automated translation script (saves to same location)
 
 # 5. Merge translations with timestamps
-python scripts/merge_translated_subtitle.py \
+python ~/.claude/skills/youtube-kr-subtitle/scripts/merge_translated_subtitle.py \
   "${PROJECT_DIR}/video.en.srt" \
   "${PROJECT_DIR}/translated_texts.json" \
   "${PROJECT_DIR}/video.ko.srt"
 
 # 6. Burn subtitles into video (with recommended font size for Korean)
-python scripts/process_video.py \
+python ~/.claude/skills/youtube-kr-subtitle/scripts/process_video.py \
   "${PROJECT_DIR}/video.mp4" \
   "${PROJECT_DIR}/video.ko.srt" \
   "${PROJECT_DIR}/video_korean.mp4" \
   Arial 16
 
 # Final output: projects/m24gQmtUFaA/video_korean.mp4
+# (Note: projects/ is created in your current working directory)
 ```
 
 ## Key Advantages Over Automated Translation

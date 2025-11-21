@@ -1,6 +1,7 @@
 # Temporary processing directories
 downloads/
 output/
+projects/
 
 # Python artifacts
 *.pyc
